@@ -1,0 +1,91 @@
+---
+layout: post
+title:  "k8s"
+date:   2020-02-11 00:18:23 +0700
+categories: [jekyll]
+---
+
+## k8s 환경구성
+### 사전구성
+* kernel-devel 설치
+* gcc 설치 필요
+
+
+### 로컬진행
+* 진행중 prometheus-deployment.yaml 파일에서 api version 수정 필요
+* minikube 삭제 안될 시 hyper-v 관리자에서 중지 및 삭제 후 재시작 delete start 하면 가능
+* create name space
+ * kubectl create ns grafana
+* helm install
+ * helm install grafana stable/grafana -n grafana
+* 포트 포워딩
+ * kubectl port-forward -n grafana grafana-asdfasdf 3000
+
+### cAdvisor 
+* cAdvisor란 쿠버네티스에서 사용하는 기본적인 모니터링 에이전트로 모든 노드에 설치되서 노드에 대한 정보와 포드 (컨테이너) 에 대한 지표를 수집한다. 이렇게 수집된 내용은 Kubelet에게 전달되는데 이 후 전달된 내용은 모니터링 툴 (메트릭 서버, 프로메테우스) 에서 다시 수집해 간다. cAdvisor의 경우 리소스 데이터만 수집한다. 이 리소스에는 CPU, Memory, Filesystem, Network Used와 같은 통계를 수집하는 것이다. 
+
+* 프로메테우스를 설치하면 지표 수집 도구가 cAdvisor 뿐만 아니라 kube-state-metrics도 설치가 된다.
+
+### Daemon Set
+* pod를 관리하는 controller
+* 데몬셋이란 모든 노드에 하나씩만 포드가 실행하도록 하는 컨트롤러이다. 레플리카셋은 원하는 복제수 만큼 노드에서 포드가 실행된다. 하나의 노드에 두개, 세개 이렇게 실행될 수 있지만 데몬셋은 무조건 노드하나에 포드하나만 실행한다. 모든 노드에 공평하게 하나씩만 분배하는 것이다. 
+* 레플리카셋과 데몬셋은 어떤 차이점이 있을까?
+우선 스케줄러를 사용하냐 안하냐의 차이가 있다. 레플리카셋의 경우 노드에서 실행되려면 스케줄러를 통해 해당 노드에서 실행될 수 있는지 없는지를 확인하는데 데몬셋은 스케줄러를 사용하지 않는다. 그냥 무조건 노드에 하나씩 배포되기 때문에 스케줄러를 사용할 필요가 없기때문이다. 그러니 복제본 수에 대한 설정도 없으며 라벨 셀렉터의 의미도 없다. 
+* 데몬셋 용도
+  1. 노드에서 기본적으로 실행해야하는 시스템 포드
+  2. 노드에서의 로그 수집 또는 모니터링
+  3. 특정 노드에서 실행되야하는 포드
+
+ ### replicaset
+* 레플리케이션 컨트롤러 동작과정  
+  1. 레플리케이션 컨트롤러가 실행
+  2. 자신이 가진 라벨셀렉터와 일치하는 라벨셀렉터를 가진 포드를 검색
+  3. 검색된 포드의 수와 자신이 원하는 수의 포드의 수가 일치하는지 확인
+  4. 원하는 수의 포드보다 더 많은 경우 실행 중인 포드 중 랜덤으로 지정하여 삭제함 (어떤 포드가 삭제될지는 알 수 없음, 다만 나중에 다른 글에서 설명하겠지만 종료 규칙을 지정하여 포드가 삭제되게 하도록 할 수 있다)
+  5. 원하는 수보다 포드의 수가 적은 경우 정의된 템플릿대로 원하는 수와 일치하는만큼 포드를 실행함 (템플릿이란 레플리케이션 컨트롤러 매니페스트[yaml 파일] 에 정의된 내용)
+  6. 이제 이 과정을 마쳤다면 다시 검색단계로 돌아가 지속적으로 위의 단계를 반복함
+
+* 레플리케이션 컨트롤러에는 세 가지 요소가 있는데 아래와 같다.
+  1. 라벨 셀렉터 : 레플리케이션 컨트롤러 범위에 있는 포드를 결정
+  2. 복제본 수 : 실행하고 싶은 포드의 수
+  3. 포드 템플릿 : 새로운 포드 (복제본) 를 생성할 때 사용
+레플리케이션 컨트롤러는 이렇게 세 가지의 요소를 가지고 있는데 이 요소들은 언제든 수정이 가능하다.
+
+* 레플리케이션 컨트롤러는 스케줄러를 통해 노드의 Kubelet에게 포드를 생성하라고 전달을 할뿐이지 자신이 직접 생성하지 않는다.
+
+### 쿠버네티스 모니터링에 대한 기본 구성 세가지
+1. prometheus : 매트릭 데이터를 수집하고, 수집된 데이터의 레파지토리역할을 한다.
+2. kube-state-metrics : 파드나 노드 사용에 대한 구체적인 쿠버네티스 매트릭 정보를 수집한다. 매트릭서버의 디테일 버전이라고 할 수 있다. 
+3. node_exporter : 노드의 구체적인 매트릭 정보를 수집한다. 노드당 하나의 앤드포인트를 가진다.
+
+### kube state metrics 과 metrics-server
+* metrics-server 는 heapster 에 영감을 받아 만들어졌으며 쿠버네티스 모니터링 아키텍쳐의 메트릭스 파이프라인 구현의 핵심니다. 매트릭서버는 클러스터 레벨 컴포넌트로 큐블릿이 제공하는 모든 kubernetes 노드의 summary api 를 통해 매트릭을 주기적으로 스크랩한다. 매트릭은 집계되고 저장되며 metrics api format 으로 제공된다. 매트릭 서버는 최근 데이터만 저장되며 third-party  에 제공 책임은 없다.
+
+* kube-state-metrics 는 deployments, replica sets 와 같은 쿠버네티스 오브젝트의 매트릭스 정보를 생성하는것에 포커싱한다. 또한 전체 스냅샷을 메모리에 보유하고 이를 기반으로 지속적으로 새로운 캐트릭 정보를 생성한다. 이 또한 third-pary 에 제공 책임 없다.
+
+* kube-state-metric 는 kubernetes api server 를 이용하여 노드, 파드, 디플로이먼트 등 다양한 오브젝트의 상태를 수집한다. kubernetes api 를 수정없이 사용하여 만들어지며 이는 kuberentes api 객체와 동급의 안정성을 가지도록 한다. 
+
+## kubernetes 명령어
+```
+# helm 설치 삭제
+helm delete prometheus
+
+#세부내용 보기
+kubectl get po -o wide
+```
+
+
+## k8s
+* 주요 명령어
+```
+$ kubectl get po
+$ kubectl get po [pod명] -o yaml
+$ kubectl port-forward [pod명] 9090
+$ kubectl describe service [service-name]
+$ kubectl logs -f [pod명]
+```
+
+## network  
+### service
+* 서비스의 cluster ip 로 들어온 요청은 kube-proxy 가 netfilter를 이용하여 패킷을 낚아채 실제 pod ip로 변환하여 보낸다.
+* service는 여러 pod 를 묶어 로드밸런싱이 가능하고 고유한 dns 및 ip 도 지정할 수 있다.

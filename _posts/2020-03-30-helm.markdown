@@ -1,0 +1,15 @@
+---
+layout: post
+title:  "MSA"
+date:   2020-03-30 00:18:23 +0700
+categories: [jekyll]
+---
+
+## helm
+* 주요 명령어
+```
+$ helm install -n test --dry-run -f values.yml stable/prometheus
+$ helm install -n test -f values.yml stable/proemtheus
+$ helm delete --purge test 
+$ helm ls
+```
