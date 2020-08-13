@@ -1,6 +1,0 @@
----
-layout: post
-title:  "Jaeger"
-date:   2020-02-05 00:18:23 +0700
-categories: [jekyll]
----

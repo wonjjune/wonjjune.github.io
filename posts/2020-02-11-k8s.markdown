@@ -1,9 +1,3 @@
----
-layout: post
-title:  "k8s"
-date:   2020-02-11 00:18:23 +0700
-categories: [jekyll]
----
 
 ## k8s 환경구성
 ### 사전구성
